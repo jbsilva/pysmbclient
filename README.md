@@ -1,0 +1,105 @@
+# Python smbclient wrapper. 
+
+This is a wrapper that works by running the "`smbclient`" subprocess and providing
+an API similar to the one provided by python `os` module.
+
+It is an ugly hack, but it is here for anyone that finds it useful.
+
+The programmer before me was using a "`bash`" file with lots of `smbclient` calls, 
+so I think my solution is at least better.
+
+## Usage example 
+
+```python
+>>> smb = smbclient.SambaClient(server="MYSERVER", share="MYSHARE", 
+                                username='foo', password='bar', domain='baz')
+>>> print smb.listdir("/")
+[u'file1.txt', u'file2.txt']
+>>> f = smb.open('/file1.txt')
+>>> data = f.read()
+>>> f.close()
+>>> smb.rename(u'/file1.txt', u'/file1.old')
+```
+
+## Documentation 
+
+### Creating the object 
+
+```python
+import smbclient
+smb = smbclient.SambaClient(server, share, username=None, password=None,
+                            domain=None, resolve_order=None, port=None, ip=None,
+                            terminal_code=None, buffer_size=None,
+                            debug_level=None, config_file=None, logdir=None,
+                            netbios_name=None, kerberos=False)
+```
+
+If you want to use kerberos authentication just use the argument 
+`kerberos=True` and you don't need to pass username and password.
+
+### Supported methods of operation 
+
+```
+chmod(path, *modes)
+      Set/reset file modes
+      Tested with: AHS
+      smbc.chmod('/file.txt', '+H')
+  
+close()
+       Closes the connection, flushes and closes all open remote files.
+  
+diskinfo(self)
+      Fetches information about a volume
+  
+info(path)
+      Fetches information about a file
+  
+exists(path)
+      Returns True if path exists in the remote host
+
+isdir(path)
+      Returns True if path is a directory/folder
+
+isfile(path)
+      Returns True if path is a regular file
+
+glob(path)
+      Lists a glob (example: "/files/somefile.*")
+      returns a list of tuples in the format:
+      [modes, size, date), ...]((filename,)
+
+lsdir(path)
+      Lists a directory
+      returns a list of tuples in the format:
+      [modes, size, date), ...]((filename,)
+
+listdir(path)
+      Emulates os.listdir()
+
+mkdir(path)
+      Creates a new folder remotely
+
+rmdir(path)
+      Removes a remote empty folder
+
+open(path, mode='r')
+      Opens the file indicated by path and returns it as a file-like object
+
+rename(old_name, new_name)
+
+volume()
+      Fetches the volume name
+
+serial()
+      Fetches the volume serial
+
+unlink(path) or remove(path)
+      Removes/deletes/unlinks a file
+  
+download(remote_path, local_path)
+upload(local_path, remote_path) 
+upload_update(local_path, remote_path)
+
+netsend(destination, message)
+      Sends a message, using netsend
+```
