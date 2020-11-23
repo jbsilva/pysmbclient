@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2009 ClÃ³vis FabrÃ­cio Costa
+# Copyright (c) 2009 Clovis Fabricio Costa
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -85,7 +85,7 @@ $
 _file_re = re.compile(r"""
 \s{2}               # file lines start with 2 spaces
 (.*?)\s+            # capture filename non-greedy, eating remaining spaces
-([ADHSR]*)          # capture file mode
+([ADHNSR]*)         # capture file mode
 \s+                 # after the mode you can have any number of spaces
 (\d+)               # file size
 \s+                 # spaces after file size
@@ -109,7 +109,7 @@ class SambaClient(object):
              domain=None, resolve_order=None, port=None, ip=None,
              terminal_code=None, buffer_size=None, debug_level=None,
              config_file=None, logdir=None, netbios_name=None, kerberos=False,
-             workgroup=None, protocol=None, runcmd_attemps=1):
+             workgroup=None, runcmd_attemps=1, extra_cmd=None):
         self.path = '//%s/%s' % (server, share)
         smbclient_cmd = ['smbclient', self.path]
         self.debug_level = 0
@@ -139,8 +139,8 @@ class SambaClient(object):
             smbclient_cmd.extend(['-l', logdir])
         if workgroup:
             smbclient_cmd.extend(['-W', workgroup])
-        if protocol:
-            smbclient_cmd.extend(['-m', protocol])
+        if extra_cmd:
+            smbclient_cmd.extend(extra_cmd)
         if not kerberos:
             self.auth = {'username': username}
             # some connections use server address as domain
@@ -151,8 +151,8 @@ class SambaClient(object):
                 smbclient_cmd.append('-N')
             fd, self.auth_filename = tempfile.mkstemp(prefix="smb.auth.")
             auth_file = os.fdopen(fd, 'w+b')
-            auth_file.write('\n'.join('%s=%s' % (k, v)
-                                      for k, v in self.auth.items()).encode('utf-8'))
+            auth_file.write(''.join('%s=%s\n' % (k, v)
+                for k, v in self.auth.items()).encode('utf-8'))
             auth_file.close()
             smbclient_cmd.extend(['-A', self.auth_filename])
         if netbios_name:
@@ -168,7 +168,7 @@ class SambaClient(object):
         cmd = self._smbclient_cmd + [b'-c', command.encode('utf8')]
         p = subprocess.Popen(cmd,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        result = p.communicate()[0].strip().decode('utf8')
+        result = p.communicate()[0].rstrip().decode('utf8')
         if p.returncode != 0 and self.runcmd_num_of_attemps:
             if self._runcmd_attemps < self.runcmd_num_of_attemps:
                 self._runcmd_attemps += 1
@@ -190,7 +190,7 @@ class SambaClient(object):
         data = self._runcmd(cmd, *args).strip()
         # debug_level > 0 generate output here
         if not self.debug_level and data and not _smb_header_re.match(data):
-            raise SambaClientError("Error on %r: %r" % (b' '.join(cmd).decode('utf8'), data))
+            raise SambaClientError("Error on %r: %r" % (cmd, data))
         return data
 
     def _acl(self, path, add=None, modify=None, delete=None, define=None):
@@ -333,11 +333,21 @@ class SambaClient(object):
 
     def isdir(self, path):
         """Returns True if path is a directory/folder"""
-        return 'D' in self._getfile(path)[1]
+        try:
+            name, modes, size, date = self._getfile(path)
+        except SambaClientError:
+            return False
+        else:
+            return 'D' in modes
 
     def isfile(self, path):
         """Returns True if path is a regular file"""
-        return not self.isdir(path)
+        try:
+            name, modes, size, date = self._getfile(path)
+        except SambaClientError:
+            return False
+        else:
+            return 'D' not in modes
 
     def exists(self, path):
         """Returns True if path exists in the remote host"""
